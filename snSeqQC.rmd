@@ -1,0 +1,312 @@
+---
+title: "Single Nucleus Sequencing Trial Quality Control and Analysis"
+output: html_document
+---
+--
+```{r include = FALSE}
+### Load data and packages
+require(Matrix)
+library(Seurat)
+require(myUtils)
+require(Biomart)
+require(ggplot2)
+require(Hmisc)
+
+# Load snSeq data 1:
+data1 = readMM('data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/matrix.mtx.gz')
+rowdata1 = read.delim('data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/features.tsv.gz', header = FALSE)
+coldata1 = read.delim('data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/barcodes.tsv.gz', header = FALSE)
+data1 = as.matrix(data1)
+rownames(data1) = rowdata1[,2]
+colnames(data1) = coldata1[,1]
+
+# Load snSeq data 2:
+data2 = readMM('data/snSeqQC/matrix.mtx.gz')
+rowdata2 = read.delim('data/snSeqQC/features.tsv.gz', header = FALSE)
+coldata2 = read.delim('data/snSeqQC/barcodes.tsv.gz', header = FALSE)
+data2 = as.matrix(data2)
+rownames(data2) = rowdata2[,2]
+colnames(data2) = coldata2[,1]
+colnames(data2) = paste(colnames(data2),'2', sep = '')
+
+# Load Allen Data:
+options(stringsAsFactors = FALSE)
+dataAllen = read.delim('data/Allen/mouse_VISp_2018-06-14_exon+intron_cpm-matrix.csv', sep = ',')
+rowdataA = read.delim('data/Allen/mouse_VISp_2018-06-14_genes-rows.csv', sep = ',')
+coldataA = read.delim('data/Allen/mouse_VISp_2018-06-14_samples-columns.csv', sep = ',')
+rownames(dataAllen) = rowdataA[,1]
+commonGenes = intersect(intersect(rownames(dataAllen), rownames(data1)), rownames(data2))
+celltypes = coldataA[,'class']
+keep = celltypes %in% c('GABAergic', 'Endothelial', 'Glutamatergic', 'Non-Neuronal')
+coldataA = coldataA[keep,]
+dataAllen = dataAllen[,keep]
+celltypes = celltypes[keep]
+subtypes = unlist(lapply(1:dim(coldataA)[1], function(x) paste(coldataA[x,c('class', 'subclass')], sep = '_', collapse = '_')))
+
+data1 = data1[commonGenes,]
+data2 = data2[commonGenes,]
+dataAllen = dataAllen[commonGenes,]
+dataAllen = dataAllen[,2:dim(dataAllen)[2]]
+```
+
+The starting point for the analysis is the filtered output form the cellranger software. The software assigns all counts with the same barcode to one cell. In addition, it discards reads from barcodes that occur only a few number of times, as these likely correspond to read errors and not cells.
+
+## Quality Control
+
+I did not remove any more cells based on low numbers of detected genes. I also did not remove cells as potential doublets based on a high numbers of detected genes alone.
+
+```{r, include = TRUE}
+# Quality Control Statistics:
+genesDetected1 = colSums(data1 > 0)
+genesDetected2 = colSums(data2 > 0)
+readsDetected1 = colSums(data1)
+readsDetected2 = colSums(data2)
+numberOfCells1 = length(genesDetected1)
+numberOfCells2 = length(genesDetected2)
+qcDataFrame = data.frame(genesDetected = c(genesDetected1, genesDetected2),
+                         readsDetected = c(readsDetected1, readsDetected2),
+                         Run = c(rep('FFT4G', length(genesDetected1)), rep('OCT1', length(genesDetected2))))
+p1 <- ggplot(qcDataFrame, aes(x=Run, y=genesDetected, fill = Run)) + 
+  geom_violin() + 
+geom_jitter(shape=16, size = 0.25, width = 0.45, height = 0.45) +
+  stat_summary(fun.data=mean_sdl, geom="pointrange", color="red") +
+  annotate("text", x = 0.7, y = 5000, label = "n = 4865") +
+  annotate("text", x = 1.85, y = 5000, label = "n = 5814") + ylab('Genes Detected')
+pdf(file = 'NumberOfDetectedGenes.pdf', width = 10, height = 10)
+p1
+dev.off()
+p1
+```
+
+```{r, include = TRUE}
+visualCortexData = cbind(dataAllen,data1,data2)
+metaData = cbind(c(rep('Allen', dim(dataAllen)[2]), rep('snSeq1', dim(data1)[2]), rep('snSeq2', dim(data2)[2])),
+                 c(coldataA[,'class'], rep('Unknown', dim(data1)[2]), rep('Unknown', dim(data2)[2])),
+                 c(subtypes, rep('Unknown', dim(data1)[2]), rep('Unknown', dim(data2)[2])))
+colnames(metaData) = c('tech', 'celltype', 'subtype')
+rownames(metaData) = c(colnames(dataAllen), colnames(data1), colnames(data2))
+metaData = as.data.frame(metaData)
+
+visualCortex <- CreateSeuratObject(visualCortexData, meta.data = metaData)
+visualCortex.list <- SplitObject(visualCortex, split.by = 'tech')
+
+for (i in 1:length(visualCortex.list)) {
+  visualCortex.list[[i]] <- NormalizeData(visualCortex.list[[i]], verbose = FALSE)
+  visualCortex.list[[i]] <- FindVariableFeatures(visualCortex.list[[i]], selection.method = "vst", nfeatures = 2000, 
+                                             verbose = FALSE)
+}
+
+visualCortex.query <- visualCortex.list[["snSeq1"]]
+visualCortex.anchors <- FindTransferAnchors(reference = visualCortex.list[['Allen']], query = visualCortex.query, 
+                                        dims = 1:30)
+predictions <- TransferData(anchorset = visualCortex.anchors, refdata = visualCortex.list[['Allen']]$celltype, 
+                            dims = 1:30)
+predictions1.1 = predictions[,1]
+predictions_Subtype <- TransferData(anchorset = visualCortex.anchors, refdata = visualCortex.list[['Allen']]$subtype, 
+                            dims = 1:30)
+predictions1.2 = predictions_Subtype[,1]
+
+scores1.1 = colSums(predictions[,2:5])
+scores1.1 = scores1.1/sum(scores1.1)
+names(scores1.1) = c('GABAergic', 'Endothelial','Glutamatergic', 'NonNeuronal')
+scores1.1 = scores1.1[order(scores1.1)]
+saveRDS(scores1.1, file = 'scores1.1.rds')
+
+scores1.2 = colSums(predictions_Subtype[,2:24])
+scores1.2 = scores1.2/sum(scores1.2)
+names(scores1.2) = unlist(lapply(1:length(scores1.2), function(x) paste(strsplit(names(scores1.2)[x], split = '\\.')[[1]][-c(1,2)], sep = '', collapse = '')))
+scores1.2 = scores1.2[order(names(scores1.2))]
+saveRDS(scores1.2, file = 'scores1.2.rds')
+
+visualCortex.query <- visualCortex.list[["snSeq2"]]
+visualCortex.anchors <- FindTransferAnchors(reference = visualCortex.list[['Allen']], query = visualCortex.query, 
+                                            dims = 1:30)
+predictions <- TransferData(anchorset = visualCortex.anchors, refdata = visualCortex.list[['Allen']]$celltype, 
+                            dims = 1:30)
+predictions2.1 = predictions[,1]
+predictions_Subtype <- TransferData(anchorset = visualCortex.anchors, refdata = visualCortex.list[['Allen']]$subtype, 
+                                    dims = 1:30)
+predictions2.2 = predictions_Subtype[,1]
+
+scores2.1 = colSums(predictions[,2:5])
+scores2.1 = scores2.1/sum(scores2.1)
+names(scores2.1) = c('GABAergic', 'Endothelial','Glutamatergic', 'NonNeuronal')
+scores2.1 = scores2.1[order(scores2.1)]
+saveRDS(scores2.1, file = 'scores2.1.rds')
+
+scores2.2 = colSums(predictions_Subtype[,2:24])
+scores2.2 = scores2.2/sum(scores2.2)
+names(scores2.2) = unlist(lapply(1:length(scores2.2), function(x) paste(strsplit(names(scores2.2)[x], split = '\\.')[[1]][-c(1,2)], sep = '', collapse = '')))
+scores2.2 = scores2.2[order(names(scores2.2))]
+saveRDS(scores2.2, file = 'scores2.2.rds')
+
+scoresAllen = table(coldataA['class'])
+scoresAllen = scoresAllen/sum(scoresAllen)
+names(scoresAllen) = c('Endothelial', 'GABAergic', 'Glutamatergic', 'NonNeuronal')
+scoresAllen = scoresAllen[names(scores1.1)]
+
+subtypes = unlist(lapply(1:length(scores1.2), function(x) paste(strsplit(names(scores1.2)[x], split = '\\.')[[1]][-c(1,2)], sep = '', collapse = '')))
+scoresAllen.2 = table(subtypes)
+scoresAllen.2 = scoresAllen.2/sum(scoresAllen.2)
+scoresAllen.2 = scoresAllen.2[sort(names(scoresAllen.2))]
+missing1 = names(scoresAllen.2)[which(!names(scoresAllen.2) %in% names(scores2.2))] 
+missing2 = names(scores2.2)[!names(scores2.2) %in% names(scoresAllen.2)] # I checked these are in the same order
+for (i in 1:length(missing1)){
+  names(scoresAllen.2)[names(scoresAllen.2) == missing1[i]] = missing2[i]
+}
+scoresAllen.2 = scoresAllen.2[names(scores1.2)]
+
+allScores.1 = data.frame(Celltype = names(scores1.1), Proportion = c(scoresAllen, scores1.1, scores2.1), Run = c(rep('Allen', length(scoresAllen)),
+                  rep('FFT4G', length(scores1.1)), rep('OCT1', length(scores2.1))))
+
+allScores.2 = data.frame(Celltype = names(scores1.2), Proportion = c(scoresAllen.2, scores1.2, scores2.2), Run = c(rep('Allen', length(scoresAllen.2)),
+                  rep('FFT4G', length(scores1.2)), rep('OCT1', length(scores2.2))))
+
+
+library(tidyr)
+library(ggplot2)
+
+p2 = ggplot(data = allScores.1, 
+       aes(x = Celltype, y = Proportion, fill = Run)) + 
+  geom_bar(stat = 'identity', position = 'dodge')
+p2
+
+p3 = ggplot(data = allScores.2, 
+       aes(x = Celltype, y = Proportion, fill = Run)) + 
+  geom_bar(stat = 'identity', position = 'dodge') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p3
+
+pdf(file = 'Classification_CellClasses.pdf', width = 10, height = 5)
+p2
+dev.off()
+
+pdf(file = 'Classification_CellSubClasses.pdf', width = 10, height = 5)
+p3
+dev.off()
+
+visualCortex.list[[2]]$celltype = predictions1.1
+visualCortex.list[[3]]$celltype = predictions2.1
+
+visualCortex.list[[2]]$subtype = predictions1.2
+visualCortex.list[[3]]$subtype = predictions2.2
+```
+
+```{r, inclue = TRUE}
+## Now do clustering with all three datasets
+reference.list <- visualCortex.list[c("Allen", "snSeq1", "snSeq2")]
+visualCortex.anchors <- FindIntegrationAnchors(object.list = reference.list, dims = 1:30)
+visualCortex.integrated <- IntegrateData(anchorset = visualCortex.anchors, dims = 1:30)
+
+library(ggplot2)
+library(cowplot)
+# switch to integrated assay. The variable features of this assay are automatically set during
+# IntegrateData
+DefaultAssay(visualCortex.integrated) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+visualCortex.integrated <- ScaleData(visualCortex.integrated, verbose = FALSE)
+visualCortex.integrated <- RunPCA(visualCortex.integrated, npcs = 30, verbose = FALSE)
+visualCortex.integrated <- RunUMAP(visualCortex.integrated, reduction = "pca", dims = 1:30)
+visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq1'] = 'FFT4G'
+visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq2'] = 'OCT1'
+# VisualCortex.snSeq = subset(visualCortex.integrated, cells = c(colnames(data1), colnames(data2)))
+p4 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "tech")
+p5 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "celltype")
+p6 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "subtype")
+p15 = FeaturePlot(visualCortex.integrated, feature = "Rorb", reduction = "umap", cols = c('yellow', 'red'))
+p16 = FeaturePlot(visualCortex.integrated, feature = "Cux1", reduction = "umap", cols = c('yellow', 'red'))
+p18 = FeaturePlot(visualCortex.integrated, feature = "Foxp2", reduction = "umap", cols = c('yellow', 'red'))
+plot_grid(p4, p6, p5, align = 'v')
+
+pdf(file = 'Clustering_Run.pdf', width = 7, height = 7)
+p4
+dev.off()
+p4
+
+pdf(file = 'Clustering_CellClass.pdf', width = 7, height = 7)
+p5
+dev.off()
+p5
+
+pdf(file = 'Clustering_CellSubClass.pdf', width = 12, height = 7)
+p6
+dev.off()
+p6
+
+pdf(file = 'Clustering_RorbExpression.pdf', width = 7, height = 7)
+p15
+dev.off()
+p15
+
+pdf(file = 'Clustering_Cux1Expression.pdf', width = 7, height = 7)
+p16
+dev.off()
+p16
+
+pdf(file = 'Clustering_Foxp2Expression.pdf', width = 7, height = 7)
+p18
+dev.off()
+p18
+```
+
+```{r, include = TRUE}
+
+### Make a second set of plots with Allen data excluded:
+p7 <- DimPlot(visualCortex.integrated[,visualCortex.integrated$tech %in% c('FFT4G', 'OCT1')], reduction = "umap", group.by = "tech", pt.size = 0.05)
+p8 <- DimPlot(visualCortex.integrated[,visualCortex.integrated$tech %in% c('FFT4G', 'OCT1')], reduction = "umap", group.by = "celltype", pt.size = 0.05)
+p9 <- DimPlot(visualCortex.integrated[,visualCortex.integrated$tech %in% c('FFT4G', 'OCT1')], reduction = "umap", group.by = "subtype", pt.size = 0.05)
+p13 = FeaturePlot(visualCortex.integrated, feature = "Rorb", reduction = "umap")
+### Make a third set of plots with Allen data excluded from common space:
+
+## Now do clustering with all three datasets
+reference.list <- visualCortex.list[c("snSeq1", "snSeq2")]
+visualCortex.anchors <- FindIntegrationAnchors(object.list = reference.list, dims = 1:30)
+visualCortex.integrated <- IntegrateData(anchorset = visualCortex.anchors, dims = 1:30)
+# switch to integrated assay. The variable features of this assay are automatically set during
+# IntegrateData
+DefaultAssay(visualCortex.integrated) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+visualCortex.integrated <- ScaleData(visualCortex.integrated, verbose = FALSE)
+visualCortex.integrated <- RunPCA(visualCortex.integrated, npcs = 30, verbose = FALSE)
+visualCortex.integrated <- RunUMAP(visualCortex.integrated, reduction = "pca", dims = 1:30)
+visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq1'] = 'FFT4G'
+visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq2'] = 'OCT1'
+# VisualCortex.snSeq = subset(visualCortex.integrated, cells = c(colnames(data1), colnames(data2)))
+p10 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "tech")
+p11 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "celltype")
+p12 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "subtype")
+p13 = FeaturePlot(visualCortex.integrated, feature = "Rorb", reduction = "umap", cols = c('yellow', 'red'))
+p19 = FeaturePlot(visualCortex.integrated, feature = "Cux1", reduction = "umap", cols = c('yellow', 'red'))
+p20 = FeaturePlot(visualCortex.integrated, feature = "Foxp2", reduction = "umap", cols = c('yellow', 'red'))
+
+pdf(file = 'Clustering_Run_snSeqOnly.pdf', width = 7, height = 7)
+p10
+dev.off()
+p10
+
+pdf(file = 'Clustering_CellClass_snSeqOnly.pdf', width = 7, height = 7)
+p11
+dev.off()
+p11
+
+pdf(file = 'Clustering_CellSubClass_snSeqOnly.pdf', width = 10, height = 7)
+p12
+dev.off()
+p12
+
+pdf(file = 'Clustering_RorbExpression_snSeqOnly.pdf', width = 7, height = 7)
+p13
+dev.off()
+p13
+
+pdf(file = 'Clustering_Cux1Expression_snSeqOnly.pdf', width = 7, height = 7)
+p19
+dev.off()
+p19
+
+pdf(file = 'Clustering_Foxp2Expression_snSeqOnly.pdf', width = 7, height = 7)
+p20
+dev.off()
+p20
+```
