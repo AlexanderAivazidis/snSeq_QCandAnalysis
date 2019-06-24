@@ -9,8 +9,7 @@ library(SoupX)
 require(biomaRt)
 
 ## Load smartSeq data:
-data0 = read.delim('/home/jovyan/data/snSeq/smartSeq/combined/study5705-tic281-star-genecounts.txt', header = TRUE, row.names = 1)
-rownames(data0) = mapIdsMouse(rownames(data0), 'ENSEMBL', 'SYMBOL')
+data0 = read.delim('/home/jovyan/data/snSeq/smartSeq/combined/study5705-tic281-salmon-genecounts.txt', header = TRUE, row.names = 1)
 
 # Load snSeq data:
 data1 = readMM('data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/matrix.mtx.gz')
@@ -34,16 +33,19 @@ ensembl = useMart("ensembl")
 ensembl = useDataset("mmusculus_gene_ensembl",mart=ensembl)
 mtGenes = getBM(attributes = 'mgi_symbol', filter = 'chromosome_name', values = "MT", mart = ensembl)
 mtGenes = as.character(unlist(mtGenes))[as.character(unlist(mtGenes)) %in% rownames(data1)]
-names(mtGenes) = c('ENSMUSG00000064341', 'ENSMUSG00000064345', 'ENSMUSG00000064351', 'ENSMUSG00000064354', 'ENSMUSG00000064356',
-                   'ENSMUSG00000064357', 'ENSMUSG00000064358', 'ENSMUSG00000064360', )
-mtProp1 = colSums(data1[rownames(data1) %in% as.character(unlist(mtGenes)),])/colSums(data1)
-mtProp2 = colSums(data2[rownames(data2) %in% as.character(unlist(mtGenes)),])/colSums(data2)
-mtDataFrame = data.frame(mtProp = c(mtProp1, mtProp2),
-                         Run = c(rep('FFT4G', length(mtProp1)), rep('OCT1', length(mtProp2))))
+mtGenes_eg = c('ENSMUSG00000064341', 'ENSMUSG00000064345', 'ENSMUSG00000064351', 'ENSMUSG00000064354', 'ENSMUSG00000064356',
+                   'ENSMUSG00000064357', 'ENSMUSG00000064358', 'ENSMUSG00000064360', 'ENSMUSG00000065947', 'ENSMUSG00000064363',
+                   'ENSMUSG00000064367', 'ENSMUSG00000064368', 'ENSMUSG00000064370')
+mtGenes_et =  c('ENSMUST00000082392.1', 'ENSMUST00000082396.1', 'ENSMUST00000082402.1', 'ENSMUST00000082405.1', 'ENSMUST00000082407.1',
+                'ENSMUST00000082408.1', 'ENSMUST00000082409.1', 'ENSMUST00000082411.1', 'ENSMUST00000084013.1', 'ENSMUST00000082414.1',
+                'ENSMUST00000082418.1', 'ENSMUST00000082419.1', 'ENSMUST00000082421.1')
+mtProp1 = colSums(data1[mtGenes,])/colSums(data1)
+mtProp2 = colSums(data2[mtGenes,])/colSums(data2)
+mtProp3 = colSums(data0[mtGenes_et,])/colSums(data0)
 
-print(sum(mtProp1 == 0))
-print(sum(mtProp2 == 0))
-  
+mtDataFrame = data.frame(mtProp = c(mtProp1, mtProp2, mtProp3),
+                         Run = c(rep('FFT4G_10x', length(mtProp1)), rep('OCT1_10x', length(mtProp2)), rep('FFT4G_SmartSeq', length(mtProp3))))
+
 p0 <- ggplot(mtDataFrame, aes(x=Run, y=mtProp, fill = Run)) + 
   scale_y_log10() +
   geom_violin() + 
@@ -58,6 +60,10 @@ p0 <- ggplot(mtDataFrame, aes(x=Run, y=mtProp, fill = Run)) +
 pdf(file = 'mitochondrialPercentage.pdf', width = 10, height = 10)
 p0
 dev.off()
+
+# Now Load gene counts from STAR:
+data0 = read.delim('/home/jovyan/data/snSeq/smartSeq/combined/study5705-tic281-star-genecounts.txt', header = TRUE, row.names = 1)
+rownames(data0) = mapIdsMouse(rownames(data0), 'ENSEMBL', 'SYMBOL')
 
 # Load Allen Data:
 options(stringsAsFactors = FALSE)
