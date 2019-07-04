@@ -9,42 +9,44 @@ library(SoupX)
 require(biomaRt)
 
 ## Load smartSeq data:
-data0 = read.delim('/home/jovyan/data/snSeq/smartSeq/combined/study5705-tic281-salmon-genecounts.txt', header = TRUE, row.names = 1)
+data0 = read.delim('/home/jovyan/data/snSeq/smartSeq/combined_premrna/combined_premrna/premrna-study5705-tic281-star-genecounts.txt', header = TRUE, row.names = 1)
 
 # Load snSeq data:
-data1 = readMM('data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/matrix.mtx.gz')
-rowdata1 = read.delim('data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/features.tsv.gz', header = FALSE)
-coldata1 = read.delim('data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/barcodes.tsv.gz', header = FALSE)
+data1 = readMM('/home/jovyan/data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/matrix.mtx.gz')
+rowdata1 = read.delim('/home/jovyan/data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/features.tsv.gz', header = FALSE)
+coldata1 = read.delim('/home/jovyan/data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/barcodes.tsv.gz', header = FALSE)
 data1 = as.matrix(data1)
 rownames(data1) = rowdata1[,2]
 colnames(data1) = coldata1[,1]
 
 # Load snSeq data:
-data2 = readMM('data/snSeqQC/matrix.mtx.gz')
-rowdata2 = read.delim('data/snSeqQC/features.tsv.gz', header = FALSE)
-coldata2 = read.delim('data/snSeqQC/barcodes.tsv.gz', header = FALSE)
+data2 = readMM('/home/jovyan/data/snSeqQC/matrix.mtx.gz')
+rowdata2 = read.delim('/home/jovyan/data/snSeqQC/features.tsv.gz', header = FALSE)
+coldata2 = read.delim('/home/jovyan/data/snSeqQC/barcodes.tsv.gz', header = FALSE)
 data2 = as.matrix(data2)
 rownames(data2) = rowdata2[,2]
 colnames(data2) = coldata2[,1]
 colnames(data2) = paste(colnames(data2),'2', sep = '')
 
 # Mitochondrial Genes:
-ensembl = useMart("ensembl")
-ensembl = useDataset("mmusculus_gene_ensembl",mart=ensembl)
-mtGenes = getBM(attributes = 'mgi_symbol', filter = 'chromosome_name', values = "MT", mart = ensembl)
-mtGenes = as.character(unlist(mtGenes))[as.character(unlist(mtGenes)) %in% rownames(data1)]
+# ensembl = useMart("ensembl")
+# ensembl = useDataset("mmusculus_gene_ensembl",mart=ensembl)
+# mtGenes = getBM(attributes = 'mgi_symbol', filter = 'chromosome_name', values = "MT", mart = ensembl)
+# mtGenes = as.character(unlist(mtGenes))[as.character(unlist(mtGenes)) %in% rownames(data1)]
+mtGenes_symbol = c("mt-Nd1", "mt-Nd2", "mt-Co1", "mt-Co2", "mt-Atp8", "mt-Atp6", "mt-Co3",
+                   "mt-Nd3", "mt-Nd4l", "mt-Nd4", "mt-Nd5", "mt-Nd6", "mt-Cytb")
 mtGenes_eg = c('ENSMUSG00000064341', 'ENSMUSG00000064345', 'ENSMUSG00000064351', 'ENSMUSG00000064354', 'ENSMUSG00000064356',
                    'ENSMUSG00000064357', 'ENSMUSG00000064358', 'ENSMUSG00000064360', 'ENSMUSG00000065947', 'ENSMUSG00000064363',
                    'ENSMUSG00000064367', 'ENSMUSG00000064368', 'ENSMUSG00000064370')
-mtGenes_et =  c('ENSMUST00000082392.1', 'ENSMUST00000082396.1', 'ENSMUST00000082402.1', 'ENSMUST00000082405.1', 'ENSMUST00000082407.1',
-                'ENSMUST00000082408.1', 'ENSMUST00000082409.1', 'ENSMUST00000082411.1', 'ENSMUST00000084013.1', 'ENSMUST00000082414.1',
-                'ENSMUST00000082418.1', 'ENSMUST00000082419.1', 'ENSMUST00000082421.1')
-mtProp1 = colSums(data1[mtGenes,])/colSums(data1)
-mtProp2 = colSums(data2[mtGenes,])/colSums(data2)
-mtProp3 = colSums(data0[mtGenes_et,])/colSums(data0)
+# mtGenes_et =  c('ENSMUST00000082392.1', 'ENSMUST00000082396.1', 'ENSMUST00000082402.1', 'ENSMUST00000082405.1', 'ENSMUST00000082407.1',
+#                 'ENSMUST00000082408.1', 'ENSMUST00000082409.1', 'ENSMUST00000082411.1', 'ENSMUST00000084013.1', 'ENSMUST00000082414.1',
+#                 'ENSMUST00000082418.1', 'ENSMUST00000082419.1', 'ENSMUST00000082421.1')
+mtProp0 = colSums(data0[mtGenes_eg,])/colSums(data0)
+mtProp1 = colSums(data1[mtGenes_symbol,])/colSums(data1)
+mtProp2 = colSums(data2[mtGenes_symbol,])/colSums(data2)
 
-mtDataFrame = data.frame(mtProp = c(mtProp1, mtProp2, mtProp3),
-                         Run = c(rep('FFT4G_10x', length(mtProp1)), rep('OCT1_10x', length(mtProp2)), rep('FFT4G_SmartSeq', length(mtProp3))))
+mtDataFrame = data.frame(mtProp = c(mtProp0, mtProp1, mtProp2),
+                         Run = c(rep('FFT4G_SmartSeq', length(mtProp0)), rep('FFT4G_10x', length(mtProp1)), rep('OCT1_10x', length(mtProp2))))
 
 p0 <- ggplot(mtDataFrame, aes(x=Run, y=mtProp, fill = Run)) + 
   scale_y_log10() +
@@ -56,22 +58,19 @@ p0 <- ggplot(mtDataFrame, aes(x=Run, y=mtProp, fill = Run)) +
         axis.title=element_text(size=14,face="bold"),
         legend.text=element_text(size=14)) +
   annotate("text", x = 0.7, y = 0.00001, label = "n(y = 0) = 3662") +
-  annotate("text", x = 1.85, y = 0.00001, label = "n(y = 0) = 1284")
+  annotate("text", x = 1.85, y = 0.00001, label = "n(y = 0) = 160") +
+  annotate("text", x = 2.85, y = 0.00001, label = "n(y = 0) = 1284")
 pdf(file = 'mitochondrialPercentage.pdf', width = 10, height = 10)
 p0
 dev.off()
 
-# Now Load gene counts from STAR:
-data0 = read.delim('/home/jovyan/data/snSeq/smartSeq/combined/study5705-tic281-star-genecounts.txt', header = TRUE, row.names = 1)
-rownames(data0) = mapIdsMouse(rownames(data0), 'ENSEMBL', 'SYMBOL')
-
 # Load Allen Data:
 options(stringsAsFactors = FALSE)
-dataAllen = read.delim('data/Allen/mouse_VISp_2018-06-14_exon+intron_cpm-matrix.csv', sep = ',')
-rowdataA = read.delim('data/Allen/mouse_VISp_2018-06-14_genes-rows.csv', sep = ',')
-coldataA = read.delim('data/Allen/mouse_VISp_2018-06-14_samples-columns.csv', sep = ',')
+dataAllen = read.delim('/home/jovyan/data/Allen/mouse_VISp_2018-06-14_exon+intron_cpm-matrix.csv', sep = ',')
+rowdataA = read.delim('/home/jovyan/data/Allen/mouse_VISp_2018-06-14_genes-rows.csv', sep = ',')
+coldataA = read.delim('/home/jovyan/data/Allen/mouse_VISp_2018-06-14_samples-columns.csv', sep = ',')
 rownames(dataAllen) = rowdataA[,1]
-commonGenes = intersect(intersect(rownames(dataAllen), rownames(data1)), rownames(data2))
+# commonGenes = intersect(intersect(rownames(dataAllen), rownames(data1)), rownames(data2))
 celltypes = coldataA[,'class']
 keep = celltypes %in% c('GABAergic', 'Endothelial', 'Glutamatergic', 'Non-Neuronal')
 coldataA = coldataA[keep,]
@@ -79,25 +78,34 @@ dataAllen = dataAllen[,keep]
 celltypes = celltypes[keep]
 subtypes = unlist(lapply(1:dim(coldataA)[1], function(x) paste(coldataA[x,c('class', 'subclass')], sep = '_', collapse = '_')))
 
-data1 = data1[commonGenes,]
-data2 = data2[commonGenes,]
-dataAllen = dataAllen[commonGenes,]
+# data1 = data1[commonGenes,]
+# data2 = data2[commonGenes,]
+# dataAllen = dataAllen[commonGenes,]
 dataAllen = dataAllen[,2:dim(dataAllen)[2]]
+
+# Change from entrez ids to symbols in smartSeq2 data and find common Genes between all data sets:
+
+rownames(data0) = mapIdsMouse(rownames(data0), IDFrom = 'ENSEMBL', IDTo = 'SYMBOL')
+commonGenes = intersect(intersect(rownames(data0), rownames(data1)), intersect(rownames(data2), rownames(dataAllen)))
 
 # Quality Control Statistics:
 
 genesDetected1 = colSums(data1 > 0)
 genesDetected2 = colSums(data2 > 0)
+genesDetected3 = colSums(data0 > 0)
 
 readsDetected1 = colSums(data1)
 readsDetected2 = colSums(data2)
+readsDetected3 = colSums(data0)
+
 
 numberOfCells1 = length(genesDetected1)
 numberOfCells2 = length(genesDetected2)
+numberOfCells3 = length(genesDetected3)
 
-qcDataFrame = data.frame(genesDetected = c(genesDetected1, genesDetected2),
-                         readsDetected = c(readsDetected1, readsDetected2),
-                         Run = c(rep('FFT4G', length(genesDetected1)), rep('OCT1', length(genesDetected2))))
+qcDataFrame = data.frame(genesDetected = c(genesDetected1, genesDetected2, genesDetected3),
+                         readsDetected = c(readsDetected1, readsDetected2, readsDetected3),
+                         Run = c(rep('FFT4G', length(genesDetected1)), rep('OCT1', length(genesDetected2)), rep('FFT4G_SmartSeq', length(mtProp0))))
 
 p1 <- ggplot(qcDataFrame, aes(x=Run, y=genesDetected, fill = Run)) + 
   geom_violin() + 
@@ -107,7 +115,8 @@ geom_jitter(shape=16, size = 0.25, width = 0.45, height = 0.45) +
         axis.title=element_text(size=14,face="bold"),
         legend.text=element_text(size=14)) +
   annotate("text", x = 0.7, y = 5000, label = "n = 4865") +
-  annotate("text", x = 1.85, y = 5000, label = "n = 5814") + ylab('Genes Detected')
+  annotate("text", x = 1.85, y = 5000, label = "n = 384") +
+  annotate("text", x = 2.85, y = 5000, label = "n = 5814") + ylab('Genes Detected')
 pdf(file = 'NumberOfDetectedGenes.pdf', width = 10, height = 10)
 p1
 dev.off()
@@ -116,6 +125,7 @@ dev.off()
 
 doubletRate1 = as.double(read.table('/home/jovyan/data/snSeq/FFT4G/filtered_feature_bc_matrix/overall_doublets_rate.txt'))
 doubletRate2 = as.double(read.table('/home/jovyan/data/snSeq/OCT1/cellranger302_count_29507_5705STDY7945424_mm10-3_0_0_premrna/filtered_feature_bc_matrix/overall_doublets_rate.txt'))
+doubletRate3 = as.double(read.table('/home/jovyan/data/snSeq/smartSeq/combined_premrna/combined_premrna/overall_doublets_rate.txt'))
 
 df <- data.frame(Run=c("FFT4G", "OCT1"),
                  Doublet_Rate=c(doubletRate1, doubletRate2))|
@@ -173,12 +183,19 @@ data2 = data2[, doublets_OCT1 == 0]
 
 # Classify cell types:
 
-visualCortexData = cbind(dataAllen,data1,data2)
-metaData = cbind(c(rep('Allen', dim(dataAllen)[2]), rep('snSeq1', dim(data1)[2]), rep('snSeq2', dim(data2)[2])),
-                 c(coldataA[,'class'], rep('Unknown', dim(data1)[2]), rep('Unknown', dim(data2)[2])),
-                 c(subtypes, rep('Unknown', dim(data1)[2]), rep('Unknown', dim(data2)[2])))
+dataAllen = dataAllen[commonGenes,]
+data1 = data1[commonGenes,]
+data2 = data2[commonGenes,]
+data0 = data0[commonGenes,]
+keep = (colSums(data0 != 0) >  2000)
+data0 = data0[,keep]
+
+visualCortexData = cbind(dataAllen,data1,data2,data0)
+metaData = cbind(c(rep('Allen', dim(dataAllen)[2]), rep('snSeq1', dim(data1)[2]), rep('snSeq2', dim(data2)[2]),rep('snSeq3', dim(data0)[2])),
+                 c(coldataA[,'class'], rep('Unknown', dim(data1)[2]), rep('Unknown', dim(data2)[2]), rep('Unknown', dim(data0)[2])),
+                 c(subtypes, rep('Unknown', dim(data1)[2]), rep('Unknown', dim(data2)[2]), rep('Unknown', dim(data0)[2])))
 colnames(metaData) = c('tech', 'celltype', 'subtype')
-rownames(metaData) = c(colnames(dataAllen), colnames(data1), colnames(data2))
+rownames(metaData) = c(colnames(dataAllen), colnames(data1), colnames(data2), colnames(data0))
 metaData = as.data.frame(metaData)
 
 visualCortex <- CreateSeuratObject(visualCortexData, meta.data = metaData)
@@ -234,6 +251,28 @@ names(scores2.2) = unlist(lapply(1:length(scores2.2), function(x) paste(strsplit
 scores2.2 = scores2.2[order(names(scores2.2))]
 saveRDS(scores2.2, file = 'scores2.2.rds')
 
+visualCortex.query <- visualCortex.list[["snSeq3"]]
+visualCortex.anchors <- FindTransferAnchors(reference = visualCortex.list[['Allen']], query = visualCortex.query, 
+                                            dims = 1:30)
+predictions <- TransferData(anchorset = visualCortex.anchors, refdata = visualCortex.list[['Allen']]$celltype, 
+                            dims = 1:30)
+predictions3.1 = predictions[,1]
+predictions_Subtype <- TransferData(anchorset = visualCortex.anchors, refdata = visualCortex.list[['Allen']]$subtype, 
+                                    dims = 1:30)
+predictions3.2 = predictions_Subtype[,1]
+
+scores3.1 = colSums(predictions[,2:5])
+scores3.1 = scores3.1/sum(scores3.1)
+names(scores3.1) = c('GABAergic', 'Endothelial','Glutamatergic', 'NonNeuronal')
+scores3.1 = scores3.1[order(scores3.1)]
+saveRDS(scores3.1, file = 'scores3.1.rds')
+
+scores3.2 = colSums(predictions_Subtype[,2:24])
+scores3.2 = scores3.2/sum(scores3.2)
+names(scores3.2) = unlist(lapply(1:length(scores3.2), function(x) paste(strsplit(names(scores3.2)[x], split = '\\.')[[1]][-c(1,2)], sep = '', collapse = '')))
+scores3.2 = scores3.2[order(names(scores3.2))]
+saveRDS(scores3.2, file = 'scores2.2.rds')
+
 scoresAllen = table(coldataA['class'])
 scoresAllen = scoresAllen/sum(scoresAllen)
 names(scoresAllen) = c('Endothelial', 'GABAergic', 'Glutamatergic', 'NonNeuronal')
@@ -250,11 +289,15 @@ for (i in 1:length(missing1)){
 }
 scoresAllen.2 = scoresAllen.2[names(scores1.2)]
 
-allScores.1 = data.frame(Celltype = names(scores1.1), Proportion = c(scoresAllen, scores1.1, scores2.1), Run = c(rep('Allen', length(scoresAllen)),
-                                                                                                                 rep('FFT4G', length(scores1.1)), rep('OCT1', length(scores2.1))))
+allScores.1 = data.frame(Celltype = names(scores1.1), Proportion = c(scoresAllen, scores1.1, scores2.1, scores3.1), Run = c(rep('Allen', length(scoresAllen)),
+                                                                                                                 rep('FFT4G_10X', length(scores1.1)),
+                                                                                                                 rep('OCT1_10X', length(scores2.1)),
+                                                                                                                 rep('FFT4G_SmartSeq', length(scores3.1))))
 
-allScores.2 = data.frame(Celltype = names(scores1.2), Proportion = c(scoresAllen.2, scores1.2, scores2.2), Run = c(rep('Allen', length(scoresAllen.2)),
-                                                                                                                   rep('FFT4G', length(scores1.2)), rep('OCT1', length(scores2.2))))
+allScores.2 = data.frame(Celltype = names(scores1.2), Proportion = c(scoresAllen.2, scores1.2, scores2.2, scores3.2), Run = c(rep('Allen', length(scoresAllen.2)),
+                                                                                                                   rep('FFT4G_10X', length(scores1.2)),
+                                                                                                                   rep('OCT1_10X', length(scores2.2)),
+                                                                                                                   rep('FFT4G_SmartSeq', length(scores3.2))))
 
 library(tidyr)
 library(ggplot2)
@@ -277,12 +320,14 @@ dev.off()
 
 visualCortex.list[[2]]$celltype = predictions1.1
 visualCortex.list[[3]]$celltype = predictions2.1
+visualCortex.list[[4]]$celltype = predictions3.1
 
 visualCortex.list[[2]]$subtype = predictions1.2
 visualCortex.list[[3]]$subtype = predictions2.2
+visualCortex.list[[4]]$subtype = predictions3.2
 
 ## Now do clustering with all three datasets
-reference.list <- visualCortex.list[c("Allen", "snSeq1", "snSeq2")]
+reference.list <- visualCortex.list[c("Allen", "snSeq1", "snSeq2", "snSeq3")]
 visualCortex.anchors <- FindIntegrationAnchors(object.list = reference.list, dims = 1:30)
 visualCortex.integrated <- IntegrateData(anchorset = visualCortex.anchors, dims = 1:30)
 
@@ -296,13 +341,18 @@ DefaultAssay(visualCortex.integrated) <- "integrated"
 visualCortex.integrated <- ScaleData(visualCortex.integrated, verbose = FALSE)
 visualCortex.integrated <- RunPCA(visualCortex.integrated, npcs = 30, verbose = FALSE)
 visualCortex.integrated <- RunUMAP(visualCortex.integrated, reduction = "pca", dims = 1:30)
-visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq1'] = 'FFT4G'
-visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq2'] = 'OCT1'
+visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq1'] = '2: FFT4G_10x'
+visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq2'] = '3: OCT1_10x'
+visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq3'] = '4: FFT4G_SmartSeq'
+visualCortex.integrated$tech[visualCortex.integrated$tech == 'Allen'] = '1: Allen'
+
 # VisualCortex.snSeq = subset(visualCortex.integrated, cells = c(colnames(data1), colnames(data2)))
 p4 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "tech")
 p5 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "celltype")
 p6 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "subtype")
 p15 = FeaturePlot(visualCortex.integrated, feature = "Rorb", reduction = "umap", cols = c('yellow', 'red'))
+p20 = FeaturePlot(visualCortex.integrated, feature = "Cux1", reduction = "umap", cols = c('yellow', 'red'))
+p21 = FeaturePlot(visualCortex.integrated, feature = "Foxp2", reduction = "umap", cols = c('yellow', 'red'))
 p19 = FeaturePlot(visualCortex.integrated, feature = "nFeature_RNA", reduction = "umap", cols = c('yellow', 'red')) + labs(title =   'Number of Genes Detected')
 
 pplot_grid(p4, p6, p5, align = 'v')
@@ -319,8 +369,12 @@ pdf(file = 'Clustering_CellSubClass.pdf', width = 12, height = 7)
 p6
 dev.off()
 
-pdf(file = 'Clustering_Rorb.pdf', width = 7, height = 7)
-p15
+pdf(file = 'Clustering_Cux1.pdf', width = 7, height = 7)
+p20
+dev.off()
+
+pdf(file = 'Clustering_Foxp2.pdf', width = 7, height = 7)
+p21
 dev.off()
 
 pdf(file = 'Clustering_NumberOfDetectedGenes.pdf', width = 7, height = 7)
