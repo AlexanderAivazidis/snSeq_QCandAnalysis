@@ -10,8 +10,10 @@ plt.rcParams['font.sans-serif'] = 'Arial'
 plt.rc('font', size=14)
 plt.rcParams['pdf.fonttype'] = 42
 
-input_dir = '/home/jovyan/data/snSeq/smartSeq/combined_premrna/combined_premrna/'
-input_file = '/home/jovyan/data/snSeq/smartSeq/combined_premrna/combined_premrna/premrna-study5705-tic281-star-genecounts.txt'
+tag = 'FFT4G_NEB'
+output_dir = '/home/jovyan/snSeq_QCandAnalysis/scrublet'
+input_dir = '/home/jovyan/data/snQCandAnalysis/FFT4G_NEB/'
+input_file = '/home/jovyan/data/snQCandAnalysis/FFT4G_NEB/premrna-study5705-tic281-star-genecounts.txt'
 counts_matrix = pd.read_csv(input_file, sep='\t')
 counts_matrix = counts_matrix.iloc[0:-4,:]
 genes = counts_matrix.iloc[:,0]
@@ -30,15 +32,16 @@ doublet_scores, predicted_doublets = scrub.scrub_doublets(min_counts=2,
 
 predicted_doublets = predicted_doublets*1
 predicted_doublets = predicted_doublets.astype(int)
-detected_doublets_rate = round(scrub.detected_doublet_rate_,4)
-overall_doublets_rate = round(scrub.overall_doublet_rate_,4)
+detected_doublets_rate = round(scrub.detected_doublet_rate_, 4)
+overall_doublets_rate = round(scrub.overall_doublet_rate_, 4)
 
-np.savetxt(input_dir + '/predicted_doublets.txt', predicted_doublets)                              
-with open(input_dir + '/detected_doublets_rate.txt', 'w') as f:
+np.savetxt(output_dir + '/' + tag + '_' + 'doublets_scores.txt', doublet_scores)   
+np.savetxt(output_dir +  '/' + tag + '_' + 'predicted_doublets.txt', predicted_doublets)                              
+with open(output_dir +  '/' + tag + '_' + 'detected_doublets_rate.txt', 'w') as f:
   f.write('%f' % detected_doublets_rate)  
 
-with open(input_dir + '/overall_doublets_rate.txt', 'w') as f:
+with open(output_dir + '/' + tag + '_' +  'overall_doublets_rate.txt', 'w') as f:
   f.write('%f' % overall_doublets_rate)
 
 f = scrub.plot_histogram()
-f.savefig(input_dir + "/doubletScore_histogram.pdf", bbox_inches='tight')
+f[0].savefig(output_dir + '/' + tag + '_' + "doubletScore_histogram.pdf", bbox_inches='tight')

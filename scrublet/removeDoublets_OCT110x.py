@@ -11,7 +11,9 @@ plt.rcParams['font.sans-serif'] = 'Arial'
 plt.rc('font', size=14)
 plt.rcParams['pdf.fonttype'] = 42
 
-input_dir = '/home/jovyan/data/snSeq/OCT1/cellranger302_count_29507_5705STDY7945424_mm10-3_0_0_premrna/filtered_feature_bc_matrix'
+tag = 'OCT1_10x'
+output_dir = '/home/jovyan/snSeq_QCandAnalysis/scrublet'
+input_dir = '/home/jovyan/data/snQCandAnalysis/OCT1_10x/filtered_feature_bc_matrix'
 counts_matrix = scipy.io.mmread(input_dir + '/matrix.mtx.gz').T.tocsc()
 genes = np.array(scr.load_genes(input_dir + '/features.tsv', delimiter='\t', column=1))
 
@@ -29,18 +31,15 @@ predicted_doublets = predicted_doublets.astype(int)
 detected_doublets_rate = round(scrub.detected_doublet_rate_, 4)
 overall_doublets_rate = round(scrub.overall_doublet_rate_, 4)
 
-np.savetxt(input_dir + '/doublets_scores.txt', doublet_scores)   
-np.savetxt(input_dir + '/predicted_doublets.txt', predicted_doublets)                              
-with open(input_dir + '/detected_doublets_rate.txt', 'w') as f:
+np.savetxt(output_dir + '/' + tag + '_' + 'doublets_scores.txt', doublet_scores)   
+np.savetxt(output_dir +  '/' + tag + '_' + 'predicted_doublets.txt', predicted_doublets)                              
+with open(output_dir +  '/' + tag + '_' + 'detected_doublets_rate.txt', 'w') as f:
   f.write('%f' % detected_doublets_rate)  
 
-with open(input_dir + '/overall_doublets_rate.txt', 'w') as f:
+with open(output_dir + '/' + tag + '_' +  'overall_doublets_rate.txt', 'w') as f:
   f.write('%f' % overall_doublets_rate)
 
 f = scrub.plot_histogram()
-f.savefig(input_dir + "/doubletScore_histogram.pdf", bbox_inches='tight')
+f[0].savefig(output_dir + '/' + tag + '_' + "doubletScore_histogram.pdf", bbox_inches='tight')
 
-print('Running UMAP...')
-scrub.set_embedding('UMAP', scr.get_umap(scrub.manifold_obs_, 10, min_dist=0.3))
-scrub.plot_embedding('UMAP', order_points=True);
-    
+
