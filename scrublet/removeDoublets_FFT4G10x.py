@@ -1,3 +1,5 @@
+import sys
+sys.modules[__name__].__dict__.clear()
 import scrublet as scr
 import scipy.io
 import matplotlib.pyplot as plt
@@ -24,9 +26,10 @@ doublet_scores, predicted_doublets = scrub.scrub_doublets(min_counts=2,
 
 predicted_doublets = predicted_doublets*1
 predicted_doublets = predicted_doublets.astype(int)
-detected_doublets_rate = round(scrub.detected_doublet_rate_,4)
-overall_doublets_rate = round(scrub.overall_doublet_rate_,4)
+detected_doublets_rate = round(scrub.detected_doublet_rate_, 4)
+overall_doublets_rate = round(scrub.overall_doublet_rate_, 4)
 
+np.savetxt(input_dir + '/doublets_scores.txt', doublet_scores)   
 np.savetxt(input_dir + '/predicted_doublets.txt', predicted_doublets)                              
 with open(input_dir + '/detected_doublets_rate.txt', 'w') as f:
   f.write('%f' % detected_doublets_rate)  
@@ -34,9 +37,9 @@ with open(input_dir + '/detected_doublets_rate.txt', 'w') as f:
 with open(input_dir + '/overall_doublets_rate.txt', 'w') as f:
   f.write('%f' % overall_doublets_rate)
 
+f = scrub.plot_histogram()
+f.savefig(input_dir + "/doubletScore_histogram.pdf", bbox_inches='tight')
 
-
-scrub.plot_histogram();
 print('Running UMAP...')
 scrub.set_embedding('UMAP', scr.get_umap(scrub.manifold_obs_, 10, min_dist=0.3))
 scrub.plot_embedding('UMAP', order_points=True);

@@ -28,6 +28,7 @@ rownames(data2) = rowdata2[,2]
 colnames(data2) = coldata2[,1]
 colnames(data2) = paste(colnames(data2),'2', sep = '')
 
+# NEB
 # Mitochondrial Genes:
 # ensembl = useMart("ensembl")
 # ensembl = useDataset("mmusculus_gene_ensembl",mart=ensembl)
