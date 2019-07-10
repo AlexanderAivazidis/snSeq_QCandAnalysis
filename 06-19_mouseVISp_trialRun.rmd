@@ -70,7 +70,7 @@ colnames(data_10xO) = paste(colnames(data_10xO),'2', sep = '')
 
 The first QC step we make is to look at the fraction of counts/reads from mitochondrial genes and potentially remove any outliers:
 
-```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE}
+```{r, include = TRUE, message = FALSE, warning = FALSE, cache = TRUE}
 # NEB
 # Mitochondrial Genes:
 # ensembl = useMart("ensembl")
@@ -105,8 +105,44 @@ p0 <- ggplot(mtDataFrame, aes(x=Run, y=mtProp, fill = Run)) +
   annotate("text", x = 1.85, y = 0.00001, label = "n(y = 0) = 160") +
   annotate("text", x = 2.85, y = 0.00001, label = "n(y = 0) = 1284")
 p0
-# pdf(file = 'mitochondrialPercentage.pdf', width = 10, height = 10)
-# p0
-# dev.off()
+pdf(file = 'figures/mitochondrialPercentage.pdf', width = 10, height = 10)
+p0
+dev.off()
 ```
 
+For now I did not remove any cells with high mitochondiral RNA count from the analysis, but in the future we can also choose to be more stringent.
+
+Next I considered the number of detected Genes and total counts/reads per cells.
+
+```{r, include = TRUE, message = FALSE, warning = FALSE, cache = TRUE}
+genesDetected1 = colSums(data_10xF > 0)
+genesDetected2 = colSums(data_10xO > 0)
+genesDetected3 = colSums(data_NEB > 0)
+
+readsDetected1 = colSums(data_10xF)
+readsDetected2 = colSums(data_10xO)
+readsDetected3 = colSums(data_NEB)
+
+
+numberOfCells1 = length(genesDetected1)
+numberOfCells2 = length(genesDetected2)
+numberOfCells3 = length(genesDetected3)
+
+qcDataFrame = data.frame(genesDetected = c(genesDetected1, genesDetected2, genesDetected3),
+                         readsDetected = c(readsDetected1, readsDetected2, readsDetected3),
+                         Run = c(rep('FFT4G', length(genesDetected1)), rep('OCT1', length(genesDetected2)), rep('FFT4G_SmartSeq', length(mtProp0))))
+
+p1 <- ggplot(qcDataFrame, aes(x=Run, y=genesDetected, fill = Run)) + 
+  geom_violin() + 
+geom_jitter(shape=16, size = 0.25, width = 0.45, height = 0.45) +
+  stat_summary(fun.data=mean_sdl, mult=1, geom="pointrange", color="red") +
+  theme(axis.text=element_text(size=14),
+        axis.title=element_text(size=14,face="bold"),
+        legend.text=element_text(size=14)) +
+  annotate("text", x = 0.7, y = 5000, label = "n = 4865") +
+  annotate("text", x = 1.85, y = 5000, label = "n = 384") +
+  annotate("text", x = 2.85, y = 5000, label = "n = 5814") + ylab('Genes Detected')
+pdf(file = 'NumberOfDetectedGenes.pdf', width = 10, height = 10)
+p1
+dev.off()
+```

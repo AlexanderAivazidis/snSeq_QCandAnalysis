@@ -104,7 +104,10 @@ p0
 ![](06-19_mouseVISp_trialRun_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
 
 ``` r
-# pdf(file = 'mitochondrialPercentage.pdf', width = 10, height = 10)
-# p0
-# dev.off()
+pdf(file = 'figures/mitochondrialPercentage.pdf', width = 10, height = 10)
+p0
+dev.off()
 ```
+
+    ## png 
+    ##   2
