@@ -9,31 +9,31 @@ library(SoupX)
 require(biomaRt)
 
 ## Load smartSeq data:
-data0 = read.delim('/home/jovyan/data/snSeq/smartSeq/combined_premrna/combined_premrna/premrna-study5705-tic281-star-genecounts.txt', header = TRUE, row.names = 1)
+data_NEB = read.delim('/home/jovyan/data/snSeq/smartSeq/combined_premrna/combined_premrna/premrna-study5705-tic281-star-genecounts.txt', header = TRUE, row.names = 1)
 
 # Load snSeq data:
-data1 = readMM('/home/jovyan/data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/matrix.mtx.gz')
-rowdata1 = read.delim('/home/jovyan/data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/features.tsv.gz', header = FALSE)
-coldata1 = read.delim('/home/jovyan/data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/barcodes.tsv.gz', header = FALSE)
-data1 = as.matrix(data1)
-rownames(data1) = rowdata1[,2]
-colnames(data1) = coldata1[,1]
+data_10xF = readMM('/home/jovyan/data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/matrix.mtx.gz')
+rowdata_10xF = read.delim('/home/jovyan/data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/features.tsv.gz', header = FALSE)
+coldata_10xF = read.delim('/home/jovyan/data/snSeqQC/cellranger302_count_29507_5705STDY7945423_mm10-3_0_0_premrna/filtered_feature_bc_matrix/barcodes.tsv.gz', header = FALSE)
+data_10xF = as.matrix(data_10xF)
+rownames(data_10xF) = rowdata_10xF[,2]
+colnames(data_10xF) = coldata_10xF[,1]
 
 # Load snSeq data:
-data2 = readMM('/home/jovyan/data/snSeqQC/matrix.mtx.gz')
-rowdata2 = read.delim('/home/jovyan/data/snSeqQC/features.tsv.gz', header = FALSE)
-coldata2 = read.delim('/home/jovyan/data/snSeqQC/barcodes.tsv.gz', header = FALSE)
-data2 = as.matrix(data2)
-rownames(data2) = rowdata2[,2]
-colnames(data2) = coldata2[,1]
-colnames(data2) = paste(colnames(data2),'2', sep = '')
+data_10xO = readMM('/home/jovyan/data/snSeqQC/matrix.mtx.gz')
+rowdata_10xO = read.delim('/home/jovyan/data/snSeqQC/features.tsv.gz', header = FALSE)
+coldata_10xO = read.delim('/home/jovyan/data/snSeqQC/barcodes.tsv.gz', header = FALSE)
+data_10xO = as.matrix(data_10xO)
+rownames(data_10xO) = rowdata_10xO[,2]
+colnames(data_10xO) = coldata_10xO[,1]
+colnames(data_10xO) = paste(colnames(data_10xO),'2', sep = '')
 
 # NEB
 # Mitochondrial Genes:
 # ensembl = useMart("ensembl")
 # ensembl = useDataset("mmusculus_gene_ensembl",mart=ensembl)
 # mtGenes = getBM(attributes = 'mgi_symbol', filter = 'chromosome_name', values = "MT", mart = ensembl)
-# mtGenes = as.character(unlist(mtGenes))[as.character(unlist(mtGenes)) %in% rownames(data1)]
+# mtGenes = as.character(unlist(mtGenes))[as.character(unlist(mtGenes)) %in% rownames(data_10xF)]
 mtGenes_symbol = c("mt-Nd1", "mt-Nd2", "mt-Co1", "mt-Co2", "mt-Atp8", "mt-Atp6", "mt-Co3",
                    "mt-Nd3", "mt-Nd4l", "mt-Nd4", "mt-Nd5", "mt-Nd6", "mt-Cytb")
 mtGenes_eg = c('ENSMUSG00000064341', 'ENSMUSG00000064345', 'ENSMUSG00000064351', 'ENSMUSG00000064354', 'ENSMUSG00000064356',
@@ -42,9 +42,9 @@ mtGenes_eg = c('ENSMUSG00000064341', 'ENSMUSG00000064345', 'ENSMUSG00000064351',
 # mtGenes_et =  c('ENSMUST00000082392.1', 'ENSMUST00000082396.1', 'ENSMUST00000082402.1', 'ENSMUST00000082405.1', 'ENSMUST00000082407.1',
 #                 'ENSMUST00000082408.1', 'ENSMUST00000082409.1', 'ENSMUST00000082411.1', 'ENSMUST00000084013.1', 'ENSMUST00000082414.1',
 #                 'ENSMUST00000082418.1', 'ENSMUST00000082419.1', 'ENSMUST00000082421.1')
-mtProp0 = colSums(data0[mtGenes_eg,])/colSums(data0)
-mtProp1 = colSums(data1[mtGenes_symbol,])/colSums(data1)
-mtProp2 = colSums(data2[mtGenes_symbol,])/colSums(data2)
+mtProp0 = colSums(data_NEB[mtGenes_eg,])/colSums(data_NEB)
+mtProp1 = colSums(data_10xF[mtGenes_symbol,])/colSums(data_10xF)
+mtProp2 = colSums(data_10xO[mtGenes_symbol,])/colSums(data_10xO)
 
 mtDataFrame = data.frame(mtProp = c(mtProp0, mtProp1, mtProp2),
                          Run = c(rep('FFT4G_SmartSeq', length(mtProp0)), rep('FFT4G_10x', length(mtProp1)), rep('OCT1_10x', length(mtProp2))))
@@ -71,7 +71,7 @@ dataAllen = read.delim('/home/jovyan/data/Allen/mouse_VISp_2018-06-14_exon+intro
 rowdataA = read.delim('/home/jovyan/data/Allen/mouse_VISp_2018-06-14_genes-rows.csv', sep = ',')
 coldataA = read.delim('/home/jovyan/data/Allen/mouse_VISp_2018-06-14_samples-columns.csv', sep = ',')
 rownames(dataAllen) = rowdataA[,1]
-# commonGenes = intersect(intersect(rownames(dataAllen), rownames(data1)), rownames(data2))
+# commonGenes = intersect(intersect(rownames(dataAllen), rownames(data_10xF)), rownames(data_10xO))
 celltypes = coldataA[,'class']
 keep = celltypes %in% c('GABAergic', 'Endothelial', 'Glutamatergic', 'Non-Neuronal')
 coldataA = coldataA[keep,]
@@ -79,25 +79,25 @@ dataAllen = dataAllen[,keep]
 celltypes = celltypes[keep]
 subtypes = unlist(lapply(1:dim(coldataA)[1], function(x) paste(coldataA[x,c('class', 'subclass')], sep = '_', collapse = '_')))
 
-# data1 = data1[commonGenes,]
-# data2 = data2[commonGenes,]
+# data_10xF = data_10xF[commonGenes,]
+# data_10xO = data_10xO[commonGenes,]
 # dataAllen = dataAllen[commonGenes,]
 dataAllen = dataAllen[,2:dim(dataAllen)[2]]
 
 # Change from entrez ids to symbols in smartSeq2 data and find common Genes between all data sets:
 
-rownames(data0) = mapIdsMouse(rownames(data0), IDFrom = 'ENSEMBL', IDTo = 'SYMBOL')
-commonGenes = intersect(intersect(rownames(data0), rownames(data1)), intersect(rownames(data2), rownames(dataAllen)))
+rownames(data_NEB) = mapIdsMouse(rownames(data_NEB), IDFrom = 'ENSEMBL', IDTo = 'SYMBOL')
+commonGenes = intersect(intersect(rownames(data_NEB), rownames(data_10xF)), intersect(rownames(data_10xO), rownames(dataAllen)))
 
 # Quality Control Statistics:
 
-genesDetected1 = colSums(data1 > 0)
-genesDetected2 = colSums(data2 > 0)
-genesDetected3 = colSums(data0 > 0)
+genesDetected1 = colSums(data_10xF > 0)
+genesDetected2 = colSums(data_10xO > 0)
+genesDetected3 = colSums(data_NEB > 0)
 
-readsDetected1 = colSums(data1)
-readsDetected2 = colSums(data2)
-readsDetected3 = colSums(data0)
+readsDetected1 = colSums(data_10xF)
+readsDetected2 = colSums(data_10xO)
+readsDetected3 = colSums(data_NEB)
 
 
 numberOfCells1 = length(genesDetected1)
@@ -179,24 +179,24 @@ scl_OCT1 = adjustCounts(scl_OCT1)
 doublets_FFT4G = read.table('/home/jovyan/data/snSeq/FFT4G/filtered_feature_bc_matrix/predicted_doublets.txt')
 doublets_OCT1 = read.table('/home/jovyan/data/snSeq/OCT1/cellranger302_count_29507_5705STDY7945424_mm10-3_0_0_premrna/filtered_feature_bc_matrix/predicted_doublets.txt')
 
-data1 = data1[, doublets_FFT4G == 0]
-data2 = data2[, doublets_OCT1 == 0]
+data_10xF = data_10xF[, doublets_FFT4G == 0]
+data_10xO = data_10xO[, doublets_OCT1 == 0]
 
 # Classify cell types:
 
 dataAllen = dataAllen[commonGenes,]
-data1 = data1[commonGenes,]
-data2 = data2[commonGenes,]
-data0 = data0[commonGenes,]
-keep = (colSums(data0 != 0) >  2000)
-data0 = data0[,keep]
+data_10xF = data_10xF[commonGenes,]
+data_10xO = data_10xO[commonGenes,]
+data_NEB = data_NEB[commonGenes,]
+keep = (colSums(data_NEB != 0) >  2000)
+data_NEB = data_NEB[,keep]
 
-visualCortexData = cbind(dataAllen,data1,data2,data0)
-metaData = cbind(c(rep('Allen', dim(dataAllen)[2]), rep('snSeq1', dim(data1)[2]), rep('snSeq2', dim(data2)[2]),rep('snSeq3', dim(data0)[2])),
-                 c(coldataA[,'class'], rep('Unknown', dim(data1)[2]), rep('Unknown', dim(data2)[2]), rep('Unknown', dim(data0)[2])),
-                 c(subtypes, rep('Unknown', dim(data1)[2]), rep('Unknown', dim(data2)[2]), rep('Unknown', dim(data0)[2])))
+visualCortexData = cbind(dataAllen,data_10xF,data_10xO,data_NEB)
+metaData = cbind(c(rep('Allen', dim(dataAllen)[2]), rep('snSeq1', dim(data_10xF)[2]), rep('snSeq2', dim(data_10xO)[2]),rep('snSeq3', dim(data_NEB)[2])),
+                 c(coldataA[,'class'], rep('Unknown', dim(data_10xF)[2]), rep('Unknown', dim(data_10xO)[2]), rep('Unknown', dim(data_NEB)[2])),
+                 c(subtypes, rep('Unknown', dim(data_10xF)[2]), rep('Unknown', dim(data_10xO)[2]), rep('Unknown', dim(data_NEB)[2])))
 colnames(metaData) = c('tech', 'celltype', 'subtype')
-rownames(metaData) = c(colnames(dataAllen), colnames(data1), colnames(data2), colnames(data0))
+rownames(metaData) = c(colnames(dataAllen), colnames(data_10xF), colnames(data_10xO), colnames(data_NEB))
 metaData = as.data.frame(metaData)
 
 visualCortex <- CreateSeuratObject(visualCortexData, meta.data = metaData)
@@ -347,7 +347,7 @@ visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq2'] = '3: OCT
 visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq3'] = '4: FFT4G_SmartSeq'
 visualCortex.integrated$tech[visualCortex.integrated$tech == 'Allen'] = '1: Allen'
 
-# VisualCortex.snSeq = subset(visualCortex.integrated, cells = c(colnames(data1), colnames(data2)))
+# VisualCortex.snSeq = subset(visualCortex.integrated, cells = c(colnames(data_10xF), colnames(data_10xO)))
 p4 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "tech")
 p5 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "celltype")
 p6 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "subtype")
@@ -403,7 +403,7 @@ visualCortex.integrated <- RunPCA(visualCortex.integrated, npcs = 30, verbose = 
 visualCortex.integrated <- RunUMAP(visualCortex.integrated, reduction = "pca", dims = 1:30)
 visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq1'] = 'FFT4G'
 visualCortex.integrated$tech[visualCortex.integrated$tech == 'snSeq2'] = 'OCT1'
-# VisualCortex.snSeq = subset(visualCortex.integrated, cells = c(colnames(data1), colnames(data2)))
+# VisualCortex.snSeq = subset(visualCortex.integrated, cells = c(colnames(data_10xF), colnames(data_10xO)))
 p10 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "tech")
 p11 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "celltype")
 p12 <- DimPlot(visualCortex.integrated, reduction = "umap", group.by = "subtype")
