@@ -389,7 +389,7 @@ p9 <- DimPlot(visualCortex.integrated[,visualCortex.integrated$tech %in% c('FFT4
 p13 = FeaturePlot(visualCortex.integrated, feature = "Rorb", reduction = "umap")
 ### Make a third set of plots with Allen data excluded from common space:
 
-## Now do clustering with all three datasets
+## Now do clustering with all three datasets:
 reference.list <- visualCortex.list[c("snSeq1", "snSeq2")]
 visualCortex.anchors <- FindIntegrationAnchors(object.list = reference.list, dims = 1:30)
 visualCortex.integrated <- IntegrateData(anchorset = visualCortex.anchors, dims = 1:30)
@@ -397,7 +397,7 @@ visualCortex.integrated <- IntegrateData(anchorset = visualCortex.anchors, dims 
 # IntegrateData
 DefaultAssay(visualCortex.integrated) <- "integrated"
 
-# Run the standard workflow for visualization and clustering
+# Run the standard workflow for visualization and clusterings
 visualCortex.integrated <- ScaleData(visualCortex.integrated, verbose = FALSE)
 visualCortex.integrated <- RunPCA(visualCortex.integrated, npcs = 30, verbose = FALSE)
 visualCortex.integrated <- RunUMAP(visualCortex.integrated, reduction = "pca", dims = 1:30)

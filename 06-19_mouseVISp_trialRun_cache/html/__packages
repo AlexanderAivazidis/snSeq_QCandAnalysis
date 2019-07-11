@@ -1,0 +1,17 @@
+base
+Matrix
+Seurat
+myUtils
+ggplot2
+lattice
+survival
+Formula
+Hmisc
+SoupX
+biomaRt
+BiocGenerics
+Biobase
+S4Vectors
+IRanges
+AnnotationDbi
+org.Mm.eg.db
