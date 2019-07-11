@@ -197,15 +197,15 @@ knitr::include_graphics("scrublet/FFT4G_NEB_doubletScore_histogram.pdf")
 
 Many of the simulated doublets actually have quite a low doublet score, this is simply because a mix of the same cell type, called monotypic, is harder to identify as a doublet than a mix of two different cell types called neotypic. The scrublet algorithm aims to find neotypic doublets that should show up as a second peak on the simulate doublets histogram. It then automatically sets a threshold between the two peaks to remove likely doublets. This threshold can be decreased to remove more doublets at the expense of removing good quality samples too. For now I leave the conservative threshold as it is. For the FFT4G_NEB run I think the algorithm was too strict and I will only remove cells with a doublet score above 0.4:
 
-```{r, include = TRUE, message = FALSE, warning = FALSE, cache = TRUE}
+```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE}
 
 doublets_10xF = read.table('scrublet/FFT4G_10x_predicted_doublets.txt')
 doublets_10xO = read.table('scrublet/OCT1_10x_predicted_doublets.txt')
-doubletsScore_NEB = read.table('scrublet/FFT4G_10x_detected_doublets_rate.txt')
+doubletsScore_NEB = read.table('scrublet/FFT4G_NEB_doublets_scores.txt')
 
 keep10xF = (doublets_10xF == 0)
 keep10xO = (doublets_10xO == 0)
-keepNEB = (doubletsScore_NEB < 0.4 && keepNEBafterQC == 1)
+keepNEB = (doubletsScore_NEB < 0.4 & keepNEBafterQC == 1)
 
 data_10xF_QC = data_10xF[, keep10xF]
 data_10xO_QC = data_10xO[, keep10xO]
@@ -232,14 +232,14 @@ rownames(data_NEB_QC) = mapIdsMouse(rownames(data_NEB_QC), IDFrom = 'ENSEMBL', I
 commonGenes = intersect(intersect(rownames(data_NEB_QC), rownames(data_10xF_QC)), intersect(rownames(data_10xO_QC), rownames(dataAllen)))
 ```
 
-```{r, include = TRUE, message = FALSE, warning = FALSE, cache = TRUE}
+```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE}
 dataAllen = dataAllen[commonGenes,]
 data_10xF_QC = data_10xF_QC[commonGenes,]
 data_10xO_QC = data_10xO_QC[commonGenes,]
 data_NEB_QC = data_NEB_QC[commonGenes,]
 ```
 
-Now we plot all four datasets side by side, visualizing different marker genes and in the last plot also the number of detected genes.
+Now we plot all four datasets side by side, visualizing different marker genes (4 for glutamatergic, 4 for GABAergic neurons) and in the last plot also the number of detected genes.
 
 ```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE}
 visualCortexData = cbind(dataAllen,data_10xF_QC,data_10xO_QC,data_NEB_QC)
@@ -285,3 +285,4 @@ print(p)
 }
 ```
 
+Overall it looks pretty good. Marker genes that are expressed highly in specific cluster in the Allen data, also fall into specific clusters in our snSeq data. However, it is obvious from the last 4 marker genes that our proportion of GABAergic neurons is smaller than theirs. The last plot with the number of detected genes, assures us that there is no obvious clustering based on this feature.

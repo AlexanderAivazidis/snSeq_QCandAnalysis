@@ -116,6 +116,31 @@ For now I did not remove any cells with high mitochondiral RNA count
 from the analysis, but in the future we can also choose to be more
 stringent.
 
+Another QC metric is the expression of TNF-alpha (as an apoptosis
+marker), which I checked for next and turned out to be 0 in all cells:
+
+``` r
+tnfProp0 = data_NEB['ENSMUSG00000024401',]
+tnfProp1 = data_10xF['Tnf',]
+tnfProp2 = data_10xO['Tnf',]
+
+print(sum(tnfProp0))
+```
+
+    ## [1] 0
+
+``` r
+print(sum(tnfProp1))
+```
+
+    ## [1] 0
+
+``` r
+print(sum(tnfProp2))
+```
+
+    ## [1] 0
+
 Next I considered the number of detected Genes and total counts/reads
 per cells (with counts I refer to unique transcript reads in the 10x
 technology, while reads from NEB can correspond to the same transcript,
@@ -153,7 +178,7 @@ geom_jitter(shape=16, size = 0.25, width = 0.45, height = 0.45) +
 p1
 ```
 
-![](06-19_mouseVISp_trialRun_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+![](06-19_mouseVISp_trialRun_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
 ``` r
 pdf(file = 'figures/NumberOfDetectedGenes.pdf', width = 10, height = 10)
@@ -179,7 +204,7 @@ geom_jitter(shape=16, size = 0.25, width = 0.45, height = 0.45) +
 p2
 ```
 
-![](06-19_mouseVISp_trialRun_files/figure-gfm/unnamed-chunk-5-2.png)<!-- -->
+![](06-19_mouseVISp_trialRun_files/figure-gfm/unnamed-chunk-6-2.png)<!-- -->
 
 ``` r
 pdf(file = 'figures/NumberOfReadsOrCounts.pdf', width = 10, height = 10)
@@ -215,20 +240,162 @@ mentioned above, save all the output from the algorithm in the /scrublet
 directory, as well as these plots of doublet scores for the real cell
 types and the simulated ones, which we can look at now:
 
-``` r
-knitr::include_graphics("scrublet/FFT4G_10x_doubletScore_histogram.pdf")
-```
+![](%22/home/jovyan/snSeq_QCandAnalysis/scrublet/FFT4G_10x_doubletScore_histogram.pdf%22)
+![](%22/home/jovyan/snSeq_QCandAnalysis/scrublet/OCT1_10x_doubletScore_histogram.pdf%22)
+![](%22/home/jovyan/snSeq_QCandAnalysis/scrublet/FFT4G_NEB_doubletScore_histogram.pdf%22)
 
-<embed src="scrublet/FFT4G_10x_doubletScore_histogram.pdf" width="1000px" height="350px" type="application/pdf" />
+Many of the simulated doublets actually have quite a low doublet score,
+this is simply because a mix of the same cell type, called monotypic, is
+harder to identify as a doublet than a mix of two different cell types
+called neotypic. The scrublet algorithm aims to find neotypic doublets
+that should show up as a second peak on the simulate doublets histogram.
+It then automatically sets a threshold between the two peaks to remove
+likely doublets. This threshold can be decreased to remove more doublets
+at the expense of removing good quality samples too. For now I leave the
+conservative threshold as it is. For the FFT4G\_NEB run I think the
+algorithm was too strict and I will only remove cells with a doublet
+score above 0.4:
 
-``` r
-knitr::include_graphics("scrublet/OCT1_10x_doubletScore_histogram.pdf")
-```
+<!-- ```{r, include = TRUE, message = FALSE, warning = FALSE, cache = TRUE} -->
 
-<embed src="scrublet/OCT1_10x_doubletScore_histogram.pdf" width="1000px" height="350px" type="application/pdf" />
+<!-- doublets_10xF = read.table('scrublet/FFT4G_10x_predicted_doublets.txt') -->
 
-``` r
-knitr::include_graphics("scrublet/FFT4G_NEB_doubletScore_histogram.pdf")
-```
+<!-- doublets_10xO = read.table('scrublet/OCT1_10x_predicted_doublets.txt') -->
 
-<embed src="scrublet/FFT4G_NEB_doubletScore_histogram.pdf" width="1000px" height="350px" type="application/pdf" />
+<!-- doubletsScore_NEB = read.table('scrublet/FFT4G_10x_detected_doublets_rate.txt') -->
+
+<!-- keep10xF = (doublets_10xF == 0) -->
+
+<!-- keep10xO = (doublets_10xO == 0) -->
+
+<!-- keepNEB = (doubletsScore_NEB < 0.4 && keepNEBafterQC == 1) -->
+
+<!-- data_10xF_QC = data_10xF[, keep10xF] -->
+
+<!-- data_10xO_QC = data_10xO[, keep10xO] -->
+
+<!-- data_NEB_QC = data_NEB[, keepNEB] -->
+
+<!-- ``` -->
+
+<!-- Maybe the best metric for the quality of the snSeq run is the extent to which it can identify biological variability. For this purpose, I embeded each dataset in 2 dimensions using the UMAP algorithm and visualized the expression of important cell type specific marker genes. As a comparison, I used the Allen smartSeq4 data (see https://www.ncbi.nlm.nih.gov/pubmed/30382198), which is a high quality reference dataset. I also used the marker genes they suggested in their publication. In this chunck of code I load the Allen data and reduce all 4 datasets to the sets of genes that are shared between them. -->
+
+<!-- ```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE} -->
+
+<!-- options(stringsAsFactors = FALSE) -->
+
+<!-- dataAllen = readRDS('/home/jovyan/data/Allen/mouse_VISp_2018-06-14_exon+intron_counts-matrix.rds') -->
+
+<!-- rowdataA = read.delim('/home/jovyan/data/Allen/mouse_VISp_2018-06-14_genes-rows.csv', sep = ',') -->
+
+<!-- coldataA = read.delim('/home/jovyan/data/Allen/mouse_VISp_2018-06-14_samples-columns.csv', sep = ',') -->
+
+<!-- rownames(dataAllen) = rowdataA[,1] -->
+
+<!-- celltypes = coldataA[,'class'] -->
+
+<!-- keep = celltypes %in% c('GABAergic', 'Endothelial', 'Glutamatergic', 'Non-Neuronal') -->
+
+<!-- coldataA = coldataA[keep,] -->
+
+<!-- dataAllen = dataAllen[,keep] -->
+
+<!-- celltypes = celltypes[keep] -->
+
+<!-- subtypes = unlist(lapply(1:dim(coldataA)[1], function(x) paste(coldataA[x,c('class', 'subclass')], sep = '_', collapse = '_'))) -->
+
+<!-- dataAllen = dataAllen[,2:dim(dataAllen)[2]] -->
+
+<!-- rownames(data_NEB_QC) = mapIdsMouse(rownames(data_NEB_QC), IDFrom = 'ENSEMBL', IDTo = 'SYMBOL') -->
+
+<!-- commonGenes = intersect(intersect(rownames(data_NEB_QC), rownames(data_10xF_QC)), intersect(rownames(data_10xO_QC), rownames(dataAllen))) -->
+
+<!-- ``` -->
+
+<!-- ```{r, include = TRUE, message = FALSE, warning = FALSE, cache = TRUE} -->
+
+<!-- dataAllen = dataAllen[commonGenes,] -->
+
+<!-- data_10xF_QC = data_10xF_QC[commonGenes,] -->
+
+<!-- data_10xO_QC = data_10xO_QC[commonGenes,] -->
+
+<!-- data_NEB_QC = data_NEB_QC[commonGenes,] -->
+
+<!-- ``` -->
+
+<!-- Now we plot all four datasets side by side, visualizing different marker genes and in the last plot also the number of detected genes. -->
+
+<!-- ```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE} -->
+
+<!-- visualCortexData = cbind(dataAllen,data_10xF_QC,data_10xO_QC,data_NEB_QC) -->
+
+<!-- metaData = cbind(c(rep('Allen', dim(dataAllen)[2]), rep('snSeq1', dim(data_10xF)[2]), rep('snSeq2', dim(data_10xO)[2]),rep('snSeq3', dim(data_NEB)[2])), -->
+
+<!--                  c(coldataA[,'class'], rep('Unknown', dim(data_10xF)[2]), rep('Unknown', dim(data_10xO)[2]), rep('Unknown', dim(data_NEB)[2])), -->
+
+<!--                  c(subtypes, rep('Unknown', dim(data_10xF)[2]), rep('Unknown', dim(data_10xO)[2]), rep('Unknown', dim(data_NEB)[2]))) -->
+
+<!-- colnames(metaData) = c('tech', 'celltype', 'subtype') -->
+
+<!-- rownames(metaData) = c(colnames(dataAllen), colnames(data_10xF), colnames(data_10xO), colnames(data_NEB)) -->
+
+<!-- metaData = as.data.frame(metaData) -->
+
+<!-- visualCortex <- CreateSeuratObject(visualCortexData, meta.data = metaData) -->
+
+<!-- visualCortex.list <- SplitObject(visualCortex, split.by = 'tech') -->
+
+<!-- for (i in 1:length(visualCortex.list)) { -->
+
+<!--   visualCortex.list[[i]] <- NormalizeData(visualCortex.list[[i]], verbose = FALSE) -->
+
+<!--   visualCortex.list[[i]] <- FindVariableFeatures(visualCortex.list[[i]], selection.method = "vst", nfeatures = 2000,  -->
+
+<!--                                                  verbose = FALSE) -->
+
+<!-- } -->
+
+<!-- for (i in 1:length(visualCortex.list)) { -->
+
+<!--   visualCortex.list[[i]] <- ScaleData(visualCortex.list[[i]], verbose = FALSE) -->
+
+<!--   visualCortex.list[[i]] <- RunPCA(visualCortex.list[[i]], npcs = 30, verbose = FALSE) -->
+
+<!--   visualCortex.list[[i]] <- RunUMAP(visualCortex.list[[i]], reduction = "pca", dims = 1:30) -->
+
+<!-- } -->
+
+<!-- featureList = c('Slc30a3', 'Cux2', 'Rorb', 'Scnn1a', -->
+
+<!--                 'Sst', 'Lamp5', 'Ndnf', 'Vip', 'nFeature_RNA') -->
+
+<!-- for (j in 1:length(featureList)){ -->
+
+<!--   featurePlots = list() -->
+
+<!-- for (i in 1:length(visualCortex.list)) { -->
+
+<!--   featurePlots[[i]] = FeaturePlot(visualCortex.list[[i]], feature = featureList[[j]], reduction = "umap", cols = c('yellow', 'red')) -->
+
+<!-- } -->
+
+<!-- grDevices::pdf(NULL) -->
+
+<!-- p = cowplot::plot_grid(featurePlots[[1]], featurePlots[[2]], featurePlots[[3]], featurePlots[[4]], labels = c('Allen','10x_FFT','10x_OCT', 'NEB_FFT')) -->
+
+<!-- grDevices::dev.off() -->
+
+<!-- cowplot::plot_grid(featurePlots[[1]], featurePlots[[2]], featurePlots[[3]], featurePlots[[4]], labels = c('Allen','10x_FFT','10x_OCT', 'NEB_FFT')) -->
+
+<!-- pdf(file = paste('figures/UMAP_', featureList[[j]], '.pdf', sep = ','), width = 10, height = 10) -->
+
+<!-- print(p) -->
+
+<!-- dev.off() -->
+
+<!-- print(p) -->
+
+<!-- } -->
+
+<!-- ``` -->
