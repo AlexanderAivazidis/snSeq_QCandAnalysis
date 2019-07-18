@@ -299,7 +299,6 @@ allScores.2 = data.frame(Celltype = names(scores1.2), Proportion = c(scoresAllen
                                                                                                                    rep('FFT4G_10X', length(scores1.2)),
                                                                                                                    rep('OCT1_10X', length(scores2.2)),
                                                                                                                    rep('FFT4G_SmartSeq', length(scores3.2))))
-
 library(tidyr)
 library(ggplot2)
 

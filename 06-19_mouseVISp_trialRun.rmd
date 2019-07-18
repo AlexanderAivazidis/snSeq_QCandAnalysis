@@ -128,9 +128,9 @@ print(sum(tnfProp2))
 ```
 
 
-Next I considered the number of detected Genes and total counts/reads per cells (with counts I refer to unique transcript reads in the 10x technology, while reads from NEB can correspond to the same transcript, so both are not directly comparable, but still give a rough overview of the data quality...).
+Next I considered the number of detected Genes and total counts/UMI counts per cells (with UMI counts I refer to unique transcript counts in the 10x technology, while counts from NEB can correspond to the same transcript, so both are not directly comparable, but still give a rough overview of the data quality...).
 
-```{r, include = TRUE, message = FALSE, warning = FALSE, cache = TRUE}
+```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE}
 genesDetected1 = colSums(data_10xF > 0)
 genesDetected2 = colSums(data_10xO > 0)
 genesDetected3 = colSums(data_NEB > 0)
@@ -173,7 +173,7 @@ geom_jitter(shape=16, size = 0.25, width = 0.45, height = 0.45) +
         legend.text=element_text(size=14)) +
   annotate("text", x = 0.7, y = 30000, label = "n = 4865") +
   annotate("text", x = 1.85, y = 30000, label = "n = 384") +
-  annotate("text", x = 2.85, y = 30000, label = "n = 5814") + ylab('Counts/Reads Detected')
+  annotate("text", x = 2.85, y = 30000, label = "n = 5814") + ylab('Counts/UMI Counts Detected')
 p2
 pdf(file = 'figures/NumberOfReadsOrCounts.pdf', width = 10, height = 10)
 p2
@@ -227,6 +227,8 @@ coldataA = coldataA[keep,]
 dataAllen = dataAllen[,keep]
 celltypes = celltypes[keep]
 subtypes = unlist(lapply(1:dim(coldataA)[1], function(x) paste(coldataA[x,c('class', 'subclass')], sep = '_', collapse = '_')))
+subtypes = gsub(" ", "_", subtypes, fixed=TRUE)
+subtypes = gsub("-", "", subtypes, fixed=TRUE)
 dataAllen = dataAllen[,2:dim(dataAllen)[2]]
 rownames(data_NEB_QC) = mapIdsMouse(rownames(data_NEB_QC), IDFrom = 'ENSEMBL', IDTo = 'SYMBOL')
 commonGenes = intersect(intersect(rownames(data_NEB_QC), rownames(data_10xF_QC)), intersect(rownames(data_10xO_QC), rownames(dataAllen)))
@@ -243,7 +245,7 @@ Now we plot all four datasets side by side, visualizing different marker genes (
 
 ```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE}
 visualCortexData = cbind(dataAllen,data_10xF_QC,data_10xO_QC,data_NEB_QC)
-metaData = cbind(c(rep('Allen', dim(dataAllen)[2]), rep('snSeq1', dim(data_10xF)[2]), rep('snSeq2', dim(data_10xO)[2]),rep('snSeq3', dim(data_NEB)[2])),
+metaData = cbind(c(rep('Allen', dim(dataAllen)[2]), rep('10x_FFT', dim(data_10xF)[2]), rep('10x_OCT', dim(data_10xO)[2]),rep('NEB_FFT', dim(data_NEB)[2])),
                  c(coldataA[,'class'], rep('Unknown', dim(data_10xF)[2]), rep('Unknown', dim(data_10xO)[2]), rep('Unknown', dim(data_NEB)[2])),
                  c(subtypes, rep('Unknown', dim(data_10xF)[2]), rep('Unknown', dim(data_10xO)[2]), rep('Unknown', dim(data_NEB)[2])))
 colnames(metaData) = c('tech', 'celltype', 'subtype')
@@ -264,6 +266,10 @@ for (i in 1:length(visualCortex.list)) {
   visualCortex.list[[i]] <- RunPCA(visualCortex.list[[i]], npcs = 30, verbose = FALSE)
   visualCortex.list[[i]] <- RunUMAP(visualCortex.list[[i]], reduction = "pca", dims = 1:30)
 }
+
+visualCortex.list[[2]]$Log10mitoFraction = log(mtProp1,10)
+visualCortex.list[[3]]$Log10mitoFraction = log(mtProp2,10)
+visualCortex.list[[4]]$Log10mitoFraction = log(mtProp0,10)
 
 featureList = c('Slc30a3', 'Cux2', 'Rorb', 'Scnn1a',
                 'Sst', 'Lamp5', 'Ndnf', 'Vip', 'nFeature_RNA')
@@ -286,3 +292,222 @@ print(p)
 ```
 
 Overall it looks pretty good. Marker genes that are expressed highly in specific cluster in the Allen data, also fall into specific clusters in our snSeq data. However, it is obvious from the last 4 marker genes that our proportion of GABAergic neurons is smaller than theirs. The last plot with the number of detected genes, assures us that there is no obvious clustering based on this feature.
+
+We can investigate differences in cell type proportions further by classifying each cell into its class, using the Allen data as a reference. I use the data integration methods in Seurate for this, which identifies 'anchors' of obviously similar cells across datasets and then uses these to map all remaining cells to their closest equivalent in the other data sets. Here is the general function that does this:
+
+```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE}
+
+predictCellType = function(queryData, referenceData, labels = referenceData$celltype){
+anchors <- FindTransferAnchors(reference = referenceData, query = queryData, 
+                                            dims = 1:30)
+predictions <- TransferData(anchorset = anchors, refdata = labels, 
+                            dims = 1:30)
+predictions_top = predictions[,1]
+predictions_score_all = predictions[,]
+predictions_score = colSums(predictions[,2:(dim(predictions)[2]-1)])
+predictions_score = predictions_score/sum(predictions_score)
+names(predictions_score) = unlist(lapply(1:length(predictions_score), function(x) paste(strsplit(names(predictions_score)[x], split = '\\.')[[1]][-c(1,2)], sep = '', collapse = '')))
+return(list(predictions_top, predictions_score, predictions_score_all))
+}
+
+```
+
+I run this to predict both celltype and subtypes:
+
+```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE}
+celltypePrediction = list()
+queryList = c('10x_FFT', '10x_OCT', 'NEB_FFT')
+print('Predicting celltypes ...')
+for (i in 1:length(queryList)){
+  print(queryList[[i]])
+  celltypePrediction[[i]] = predictCellType(visualCortex.list[[queryList[[i]]]], visualCortex.list[['Allen']]) 
+}
+names(celltypePrediction) = queryList
+
+subtypePrediction = list()
+queryList = c('10x_FFT', '10x_OCT', 'NEB_FFT')
+print('Predicting subtypes ...')
+for (i in 1:length(queryList)){
+  print(queryList[[i]])
+  subtypePrediction[[i]] = predictCellType(visualCortex.list[[queryList[[i]]]], visualCortex.list[['Allen']], labels = visualCortex.list[['Allen']]$subtype) 
+}
+names(subtypePrediction) = queryList
+
+### Add the predicted cell type labels to the metadata:
+
+visualCortex.list[[2]]$celltype = celltypePrediction[[1]][[1]]
+visualCortex.list[[3]]$celltype = celltypePrediction[[2]][[1]]
+visualCortex.list[[4]]$celltype = celltypePrediction[[3]][[1]]
+
+visualCortex.list[[2]]$subtype = subtypePrediction[[1]][[1]]
+visualCortex.list[[3]]$subtype = subtypePrediction[[2]][[1]]
+visualCortex.list[[4]]$subtype = subtypePrediction[[3]][[1]]
+
+visualCortex.list[[2]]$celltypeScore = celltypePrediction[[1]][[3]][,6]
+visualCortex.list[[3]]$celltypeScore = celltypePrediction[[2]][[3]][,6]
+visualCortex.list[[4]]$celltypeScore = celltypePrediction[[3]][[3]][,6]
+
+visualCortex.list[[2]]$subtypeScore = subtypePrediction[[1]][[3]][,25]
+visualCortex.list[[3]]$subtypeScore = subtypePrediction[[2]][[3]][,25]
+visualCortex.list[[4]]$subtypeScore = subtypePrediction[[3]][[3]][,25]
+
+```
+
+And visualize the results in two bar plots, together with cell type proportions from the Allen data set:
+
+```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE}
+
+celltypesAllen = table(coldataA['class'])
+celltypesAllen = celltypesAllen/sum(celltypesAllen)
+names(celltypesAllen)[4] = 'NonNeuronal' # Need to correct this one for consistency as the '-' in Non-Neuronal was ommited for the other datasets 
+celltypesAllen = celltypesAllen[names(celltypePrediction[[1]][[2]])]
+
+subtypesAllen = table(subtypes)
+subtypesAllen = subtypesAllen/sum(subtypesAllen)
+names(subtypesAllen)[12] = "Glutamatergic_L23_IT"
+subtypesAllen = subtypesAllen[names(subtypePrediction[[1]][[2]])]
+
+celltypeProportions = data.frame(Celltype = names(celltypePrediction[[1]][[2]]), Proportion = c(celltypesAllen, celltypePrediction[[1]][[2]], celltypePrediction[[2]][[2]], celltypePrediction[[3]][[2]]), Run = c(rep('Allen', length(celltypesAllen)),
+rep('FFT_10X', length(celltypePrediction[[1]][[2]])), rep('OCT_10X', length(celltypePrediction[[2]][[2]])), rep('FFT_SmartSeq', length(celltypePrediction[[3]][[2]]))))
+
+subtypeProportions = data.frame(Celltype = names(subtypePrediction[[1]][[2]]), Proportion = c(subtypesAllen, subtypePrediction[[1]][[2]], subtypePrediction[[2]][[2]], subtypePrediction[[3]][[2]]), Run = c(rep('Allen', length(subtypesAllen)),
+rep('FFT_10X', length(subtypePrediction[[1]][[2]])), rep('OCT_10X', length(subtypePrediction[[2]][[2]])), rep('FFT_SmartSeq', length(subtypePrediction[[3]][[2]]))))
+
+library(tidyr)
+library(ggplot2)
+
+p2 = ggplot(data = celltypeProportions,
+       aes(x = Celltype, y = Proportion, fill = Run)) +
+  geom_bar(stat = 'identity', position = 'dodge')
+p2
+p3 = ggplot(data = subtypeProportions,
+       aes(x = Celltype, y = Proportion, fill = Run)) +
+  geom_bar(stat = 'identity', position = 'dodge') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p3
+pdf(file = 'figures/Classification_CellClasses.pdf', width = 10, height = 5)
+p2
+dev.off()
+pdf(file = 'figures/Classification_CellSubClasses.pdf', width = 10, height = 5)
+p3
+dev.off()
+```
+
+Now the Seurat method actually returns a score for each cell that is 1 if it is confidently mapped to a cell class and lower if it is less confident. Importantly, it can also be 0 across all cell classes, if no cell class in the reference data seems to match. Now in the code above I summed up the score for each cell class to get an idea of the proportions. It is good to check how these scores are distributed. Are most of them close to 1? Are some of them 0, indicating that we have cells that are not found in the reference data?
+
+```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE}
+for (i in 1:length(celltypePrediction)){
+  df1 = data.frame(score = unname(celltypePrediction[[i]][[3]][6]), type = rep('general', length(celltypePrediction[[i]][[3]][6])))
+h1 = ggplot(df1, aes(x=score)) + 
+ geom_histogram(aes(y=..density..), colour="black", fill="white")+
+ geom_density(alpha=.2, fill="#FF6666") +ggtitle(names(celltypePrediction)[[i]])
+df2 = data.frame(score = unname(subtypePrediction[[i]][[3]][25]), type = rep('general', length(subtypePrediction[[i]][[3]][6])))
+h2 = ggplot(df2, aes(x=score)) + 
+ geom_histogram(aes(y=..density..), colour="black", fill="white")+
+ geom_density(alpha=.2, fill="#FF6666") +ggtitle(names(celltypePrediction)[[i]])
+p = cowplot::plot_grid(h1, h2, labels = c('               Celltypes', '              Subtypes'))
+pdf(file = paste('figures/ClassificationScoreDistribution_', names(celltypePrediction)[[i]], '.pdf', sep = ','), width = 10, height = 20)
+print(p)
+dev.off()
+print(p)
+}
+```
+
+In general, given the prediction scores for the general cell types are all close to 1 there are likely no cell types that are not in the reference dataset. For the subtype prediction there are many scores of 1, but also significantly below 1, showing the difficulty of classifying cells into type with only fine distinctions. In their paper they have shown that a score > 0.5 can be trusted, so that is most of the datasets. The average subtype prediction score is an unfair comparison between the datasets, since the prediction uses information from similar cells within the dataset in the calculation and thus datasets with more cells benefit. Still for completenes I plot it below:
+
+```{r, include = TRUE, message = FALSE, warning = FALSE, cache = TRUE}
+
+
+library(tidyr)
+library(ggplot2)
+
+classificationScores = data.frame(MeanScore = c(mean(subtypePrediction[[1]][[3]][[25]]), mean(subtypePrediction[[2]][[3]][[25]]), mean(subtypePrediction[[3]][[3]][[25]])),
+                                  Run = names(subtypePrediction))
+
+p2 = ggplot(data = classificationScores,
+       aes(x = Run, y = MeanScore, fill = Run)) +
+  geom_bar(stat = 'identity', position = 'dodge')
+p2
+
+pdf(file = 'figures/ClassificationScoresMean.pdf', width = 10, height = 5)
+p2
+dev.off()
+
+```
+
+Now for a final comparison between the different protocols and to see if there are any biases between them, such as a cell cluster absent in one protocol, I produce joint 2D embeddings for the data below. For this purpose I use again Seurat's anchor based method, which has the advantage that it will successfully integrate different datasets even if certain cell populations only exist in one of the datasets. Of particular interest are pairwise comparisons between the two 10x runs and the two runs with fresh frozen tissue:
+
+```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE}
+reference.list <- visualCortex.list[c("10x_FFT", "10x_OCT")]
+visualCortex10x.anchors <- FindIntegrationAnchors(object.list = reference.list, dims = 1:30)
+visualCortex.10xintegrated <- IntegrateData(anchorset = visualCortex10x.anchors, dims = 1:30)
+
+library(ggplot2)
+library(cowplot)
+# switch to integrated assay. The variable features of this assay are automatically set during
+# IntegrateData
+DefaultAssay(visualCortex.10xintegrated) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+visualCortex.10xintegrated <- ScaleData(visualCortex.10xintegrated, verbose = FALSE)
+visualCortex.10xintegrated <- RunPCA(visualCortex.10xintegrated, npcs = 30, verbose = FALSE)
+visualCortex.10xintegrated <- RunUMAP(visualCortex.10xintegrated, reduction = "pca", dims = 1:30)
+
+# VisualCortex.snSeq = subset(visualCortex.integrated, cells = c(colnames(data_10xF), colnames(data_10xO)))
+p4 <- DimPlot(visualCortex.10xintegrated, reduction = "umap", group.by = "tech")
+p4
+
+pdf(file = 'figures/10xJointEmbedding.pdf', width = 10, height = 5)
+p4
+dev.off()
+
+reference.list <- visualCortex.list[c("10x_FFT", "NEB_FFT")]
+visualCortexFFT.anchors <- FindIntegrationAnchors(object.list = reference.list, dims = 1:30)
+visualCortex.FFTintegrated <- IntegrateData(anchorset = visualCortexFFT.anchors, dims = 1:30)
+
+library(ggplot2)
+library(cowplot)
+# switch to integrated assay. The variable features of this assay are automatically set during
+# IntegrateData
+DefaultAssay(visualCortex.FFTintegrated) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+visualCortex.FFTintegrated <- ScaleData(visualCortex.FFTintegrated, verbose = FALSE)
+visualCortex.FFTintegrated <- RunPCA(visualCortex.FFTintegrated, npcs = 30, verbose = FALSE)
+visualCortex.FFTintegrated <- RunUMAP(visualCortex.FFTintegrated, reduction = "pca", dims = 1:30)
+
+# VisualCortex.snSeq = subset(visualCortex.integrated, cells = c(colnames(data_10xF), colnames(data_10xO)))
+p5 <- DimPlot(visualCortex.FFTintegrated, reduction = "umap", group.by = "tech")
+p5
+
+pdf(file = 'figures/FFTJointEmbedding.pdf', width = 10, height = 5)
+p5
+dev.off()
+```
+
+Now there seems to be a cluster of cells that is only present in 10x_OCT and not 10x_FFT. To investigate these further I coloured the same plot based on number of detected genes, classyfied cell type, classification score and mitochondrial transcript count fraction:
+
+```{r, include = TRUE, message = FALSE, warning = FALSE, cache = FALSE}
+p15 = DimPlot(visualCortex.10xintegrated, reduction = "umap", group.by = "subtype")
+p16 = FeaturePlot(visualCortex.10xintegrated, feature = "nFeature_RNA", reduction = "umap", cols = c('yellow', 'red'))
+p17 = FeaturePlot(visualCortex.10xintegrated, feature = "subtypeScore", reduction = "umap", cols = c('yellow', 'red'))
+p18 = FeaturePlot(visualCortex.10xintegrated, feature = "Log10mitoFraction", reduction = "umap", cols = c('yellow', 'red'))
+p15
+p16
+p17
+p18
+
+pdf(file = 'figures/UMAP_10x_subtypes.pdf', width = 10, height = 5)
+p15
+dev.off()
+pdf(file = 'figures/UMAP_10x_nCounts.pdf', width = 10, height = 5)
+p16
+dev.off()
+pdf(file = 'figures/UMAP_10x_subtypeScore.pdf', width = 10, height = 5)
+p17
+dev.off()
+pdf(file = 'figures/UMAP_10x_Log10mitoFraction.pdf', width = 10, height = 5)
+p18
+dev.off()
+```
+
+The number of counts, classification scores and mitochondrial counts fraction are not strongly out of the expected range. So it may simply be that this is a further subcategory of glutamatergic_L5_PT neurons that is only present in the OCT samples. Isolating the cells in this cluster and looking at DE genes compared to the rest will be my next step.

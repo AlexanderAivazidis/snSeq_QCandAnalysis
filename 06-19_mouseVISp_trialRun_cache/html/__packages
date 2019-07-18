@@ -15,3 +15,4 @@ S4Vectors
 IRanges
 AnnotationDbi
 org.Mm.eg.db
+tidyr
